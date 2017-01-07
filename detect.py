@@ -13,10 +13,10 @@ import numpy as np
 from scipy.misc import imread
 import argparse
 
-import numplate.utils
-from numplate import image_utils
 from numplate.config import config
-from numplate.video_util import VideoCapture
+import numplate.utils
+from ml import image_util
+from ml.video_util import VideoCapture, isfile_video
 import Tkinter
 
 # display boxes only above confidence
@@ -74,7 +74,7 @@ class DetectPlate(object):
 		t = time.time()
 
 		# resize image...
-		resized_img, _ = image_utils.resized_aspect_fill(image, (H['image_width'], H['image_height']))
+		resized_img, _ = image_util.resized_aspect_fill(image, (H['image_width'], H['image_height']))
 
 		feed = {self.x_in: resized_img}
 		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
@@ -85,8 +85,11 @@ class DetectPlate(object):
 
 		#print(np_pred_boxes)
 		#print(np_pred_confidences)
-		for r in rects:
+		ret_rects = []
+		for r in rects[:]:
 			print(r.score)
+			if r.score >= CONFIDENCE:
+				ret_rects.append(r)
 		#numplate.utils.show_image(new_img)
 		return new_img
 
@@ -149,7 +152,7 @@ def main():
 	print('Loading model: {}'.format(WEIGHT_FILE))
 
 	# if 'video' in magic.from_file(args.file[0], mime=True):
-	if numplate.utils.isfile_video(args.file[0]) or args.file[0] == 'video':
+	if isfile_video(args.file[0]) or args.file[0] == 'video':
 		path = args.file[0]
 		if args.file[0] == 'video':
 			path = 0
