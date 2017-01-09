@@ -87,7 +87,7 @@ def resize_images(samplelist, savedir):
 			bboxes.append([rect['x1'],rect['y1'],rect['x2'],rect['y2']])
 		image = imread(entry['image_path'], mode='RGB')
 
-		image, bboxes = image_utils.resized_aspect_fill(image, IMAGE_SIZE, bboxes)
+		image, bboxes, _ = image_utils.resized_aspect_fill(image, IMAGE_SIZE, bboxes)
 
 		newpath = os.path.split(entry['image_path'])[-1]
 		newpath = os.path.join(savedir, newpath)

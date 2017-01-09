@@ -4,6 +4,8 @@ import json
 from skimage.transform import resize
 import sys
 
+import os
+
 from train import build_forward
 from utils.annolist import AnnotationLib as al
 from utils.rect import Rect
@@ -17,7 +19,8 @@ from numplate.config import config
 import numplate.utils
 from ml import image_util
 from ml.video_util import VideoCapture, isfile_video
-import Tkinter
+from ml.bounding_box import BBox
+
 
 # display boxes only above confidence
 CONFIDENCE = 0.5
@@ -31,7 +34,9 @@ with open(HYPES_FILE, 'r') as f:
 class DetectPlate(object):
 	def __init__(self):
 		self.pred_boxes, self.pred_confidences = self._load_graph()
-
+		self.image = None
+		self.bboxes = []
+		self.boxed_image = None
 
 	def _load_graph(self):
 		tf.reset_default_graph()
@@ -63,7 +68,7 @@ class DetectPlate(object):
 
 	def detect(self, image):
 		"""Detect number plate from input images
-		:param images: numpy array image in shape of (image_height, image_width, 3 channels) (RGB format).
+		:param image: numpy array image in shape of (image_height, image_width, 3 channels) (RGB format).
 		If image is different
 		:return: list [[probability, bbox], ...]
 		"""
@@ -74,24 +79,30 @@ class DetectPlate(object):
 		t = time.time()
 
 		# resize image...
-		resized_img, _ = image_util.resized_aspect_fill(image, (H['image_width'], H['image_height']))
+		resized_img, _, resize_scale = image_util.resized_aspect_fill(image, (H['image_width'], H['image_height']))
 
 		feed = {self.x_in: resized_img}
 		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
-		new_img, rects = add_rectangles(H, [resized_img], np_pred_confidences, np_pred_boxes,
+		boxed_image, rects = add_rectangles(H, [resized_img], np_pred_confidences, np_pred_boxes,
 										use_stitching=True, rnn_len=H['rnn_len'], min_conf=CONFIDENCE,
 										show_suppressed=False)
 		print('elapsed: {}'.format(time.time() - t))
 
 		#print(np_pred_boxes)
 		#print(np_pred_confidences)
-		ret_rects = []
+		bboxes = []
 		for r in rects[:]:
 			print(r.score)
 			if r.score >= CONFIDENCE:
-				ret_rects.append(r)
-		#numplate.utils.show_image(new_img)
-		return new_img
+				r.rescale(1/resize_scale)
+				bbox = BBox(r.x1, r.y1, x2=r.x2, y2=r.y2)
+				bbox.confidence = r.score
+				bboxes.append(bbox)
+
+		self.bboxes = bboxes
+		self.image = image
+		self.boxed_image = boxed_image
+		return bboxes
 
 
 
@@ -118,8 +129,8 @@ def detect_video(path):
 		image = video.get()
 		if image is None:
 			exit(0)
-		img = d.detect(image)
-		tkimg[0] = ImageTk.PhotoImage(Image.fromarray(img))
+		d.detect(image)
+		tkimg[0] = ImageTk.PhotoImage(Image.fromarray(d.boxed_image))
 		label.config(image=tkimg[0])
 		root.update_idletasks()
 		root.after(delay, update_video)
@@ -162,8 +173,8 @@ def main():
 		d = DetectPlate()
 		for fn in args.file:
 			img = imread(fn, mode='RGB')
-			new_img = d.detect(img)
-			numplate.utils.show_image(new_img)
+			d.detect(img)
+			numplate.utils.show_image(d.boxed_image)
 
 
 if __name__ == '__main__':
