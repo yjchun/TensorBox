@@ -23,8 +23,8 @@ from ml.bounding_box import BBox
 
 
 # display boxes only above confidence
-CONFIDENCE = 0.5
-WEIGHT_FILE = config.base_dir+'/TensorBox/output/save.ckpt-20000'
+CONFIDENCE = 0.7
+WEIGHT_FILE = config.base_dir+'/TensorBox/output/save.ckpt-1140000'
 
 HYPES_FILE = config.base_dir+'/TensorBox/hypes/overfeat_rezoom.json'
 with open(HYPES_FILE, 'r') as f:
@@ -83,16 +83,17 @@ class DetectPlate(object):
 
 		feed = {self.x_in: resized_img}
 		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
+		# TODO: boxed_image is not needed
 		boxed_image, rects = add_rectangles(H, [resized_img], np_pred_confidences, np_pred_boxes,
 										use_stitching=True, rnn_len=H['rnn_len'], min_conf=CONFIDENCE,
 										show_suppressed=False)
-		print('elapsed: {}'.format(time.time() - t))
+		#print('elapsed: {}'.format(time.time() - t))
 
 		#print(np_pred_boxes)
 		#print(np_pred_confidences)
 		bboxes = []
 		for r in rects[:]:
-			print(r.score)
+			#print(r.score)
 			if r.score >= CONFIDENCE:
 				r.rescale(1/resize_scale)
 				bbox = BBox(r.x1, r.y1, x2=r.x2, y2=r.y2)
@@ -104,6 +105,18 @@ class DetectPlate(object):
 		self.boxed_image = boxed_image
 		return bboxes
 
+
+	def get_plates(self, image):
+		bboxes = self.detect(image)
+
+		plate_images = []
+		for bbox in bboxes:
+			# enlarge bbox by 20%
+			bbox.pad(bbox.height*0.2)
+			cropped = bbox.crop_image(image)
+			plate_images.append(cropped)
+
+		return plate_images
 
 
 def detect_video(path):
@@ -139,6 +152,17 @@ def detect_video(path):
 	root.mainloop()
 
 
+def process_json(path, d):
+	with open(path, 'r') as f:
+		testlist = json.load(f)
+	for item in testlist:
+		image_path = item['image_path']
+
+		img = imread(image_path, mode='RGB')
+		d.detect(img)
+		numplate.utils.show_image(d.boxed_image)
+
+
 def main():
 	global CONFIDENCE, WEIGHT_FILE
 
@@ -172,8 +196,15 @@ def main():
 	else:
 		d = DetectPlate()
 		for fn in args.file:
+			if fn.endswith('json'):
+				process_json(fn, d)
+				continue
+
 			img = imread(fn, mode='RGB')
-			d.detect(img)
+			boxes = d.detect(img)
+			for r in boxes:
+				print(r.confidence)
+			# TODO: display confidence on the image
 			numplate.utils.show_image(d.boxed_image)
 
 

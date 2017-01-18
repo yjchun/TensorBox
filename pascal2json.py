@@ -8,7 +8,7 @@ from xml.etree import ElementTree
 from lxml import etree
 import random
 from numplate import utils
-from numplate import image_utils
+from ml import image_util
 # from skimage import io
 from scipy.misc import imread, imsave
 
@@ -23,7 +23,10 @@ SPLIT_TEST = 0.1 # 10% is for test set
 
 IMAGE_SIZE = (1024, 768)
 IMAGE_DIR = 'images'
-
+# one of
+# plate_new_small, plate_new_large, plate_new_com_small, plate_new_com_large, plate_new_2004, plate_old, plate_con, plate_temp
+# defined in tools/labelimg/data/predefined_classes.txt
+FILTER_CLASSES = ['plate_new_small', 'plate_new_large']
 
 
 def read_pascal(filepath):
@@ -52,13 +55,14 @@ def read_pascal(filepath):
 		if bndbox is None:
 			raise Exception('failed to retrieve bndbox')
 
-		# label = object_iter.find('name').text
+		label = object_iter.find('name').text
 
 		rect = {}
 		rect['x1'] = float(bndbox.find('xmin').text)
 		rect['x2'] = float(bndbox.find('xmax').text)
 		rect['y1'] = float(bndbox.find('ymin').text)
 		rect['y2'] = float(bndbox.find('ymax').text)
+		rect['class'] = label
 		shapes['rects'].append(rect)
 
 	return shapes
@@ -87,7 +91,7 @@ def resize_images(samplelist, savedir):
 			bboxes.append([rect['x1'],rect['y1'],rect['x2'],rect['y2']])
 		image = imread(entry['image_path'], mode='RGB')
 
-		image, bboxes, _ = image_utils.resized_aspect_fill(image, IMAGE_SIZE, bboxes)
+		image, bboxes, _ = image_util.resized_aspect_fill(image, IMAGE_SIZE, bboxes)
 
 		newpath = os.path.split(entry['image_path'])[-1]
 		newpath = os.path.join(savedir, newpath)
@@ -107,11 +111,31 @@ def resize_images(samplelist, savedir):
 	return samplelist
 
 
+def filter_list(samplelist, classlist):
+	newlist = []
+	for entry in samplelist:
+		rects = []
+		for rect in entry['rects']:
+			# add bounding box only if it is in classlist
+			label = rect['class']
+			if label in classlist:
+				rects.append(rect)
+		# if there is a bounding box left
+		if len(rects) > 0:
+			entry['rects'] = rects
+			newlist.append(entry)
+
+	return newlist
+
 def main():
+
 	print('Loading pascal XML dir: {}'.format(PASCAL_XML_DIR))
 	samplelist = read_pascal_dir(PASCAL_XML_DIR)
 
 	print('Read {} training images'.format(len(samplelist)))
+
+	samplelist = filter_list(samplelist, FILTER_CLASSES)
+	print('filtered training images: {}'.format(len(samplelist)))
 
 	print('Resizing images (saving to {})...'.format(IMAGE_DIR))
 	samplelist = resize_images(samplelist, IMAGE_DIR)
