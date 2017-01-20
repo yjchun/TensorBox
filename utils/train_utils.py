@@ -41,7 +41,7 @@ def load_idl_tf(idlfile, H, jitter):
         random.shuffle(annos)
         for anno in annos:
             I = imread(anno.imageName)
-	    #Skip Greyscale images
+        #Skip Greyscale images
             if len(I.shape) < 3:
                 continue	    
             if I.shape[2] == 4:
@@ -119,7 +119,8 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
                 w = bbox[2]
                 h = bbox[3]
                 conf = np.max(confidences_r[0, y, x, n, 1:])
-                all_rects[y][x].append(Rect(abs_cx,abs_cy,w,h,conf))
+                class_id = np.argmax(confidences_r[0, y, x, n, 1:]) + 1
+                all_rects[y][x].append(Rect(abs_cx,abs_cy,w,h,conf,class_id))
 
     all_rects_r = [r for row in all_rects for cell in row for r in cell]
     if use_stitching:
@@ -151,6 +152,7 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
         r.y1 = rect.cy - rect.height/2.
         r.y2 = rect.cy + rect.height/2.
         r.score = rect.true_confidence
+        r.silhouetteID = rect.class_id
         rects.append(r)
 
     return image, rects

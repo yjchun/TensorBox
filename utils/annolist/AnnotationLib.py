@@ -737,6 +737,8 @@ def parseJSON(filename):
             rect.y2 = annoRect["y2"]
             if "score" in annoRect:
                 rect.score = annoRect["score"]
+            if "class_id" in annoRect:
+                rect.silhouetteID = annoRect["class_id"]
 
             rects.append(rect)
 

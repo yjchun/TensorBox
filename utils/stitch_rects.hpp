@@ -19,14 +19,16 @@ class Rect {
   int width_;
   int height_;
   float confidence_;
+  int class_id_;
   float true_confidence_;
 
-  explicit Rect(int cx, int cy, int width, int height, float confidence) {
+  explicit Rect(int cx, int cy, int width, int height, float confidence, int class_id) {
     cx_ = cx;
     cy_ = cy;
     width_ = width;
     height_ = height;
     confidence_ = confidence;
+    class_id_ = class_id;
     true_confidence_ = confidence;
   }
 
@@ -36,6 +38,7 @@ class Rect {
     width_ = other.width_;
     height_ = other.height_;
     confidence_ = other.confidence_;
+    class_id_ = other.class_id_;
     true_confidence_ = other.true_confidence_;
   }
 
@@ -82,7 +85,8 @@ class Rect {
       cy_ == other.cy_ &&
       width_ == other.width_ &&
       height_ == other.height_ &&
-      confidence_ == other.confidence_);
+      confidence_ == other.confidence_ &&
+      class_id_ == other.class_id_);
   }
 };
 

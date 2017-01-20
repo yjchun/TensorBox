@@ -69,8 +69,7 @@ class DetectPlate(object):
 	def detect(self, image):
 		"""Detect number plate from input images
 		:param image: numpy array image in shape of (image_height, image_width, 3 channels) (RGB format).
-		If image is different
-		:return: list [[probability, bbox], ...]
+		:return: list of BBox
 		"""
 		#sess = tf.get_default_session()
 		#x_in = tf.get_default_graph().get_tensor_by_name('x_in:0')
@@ -79,7 +78,7 @@ class DetectPlate(object):
 		t = time.time()
 
 		# resize image...
-		resized_img, _, resize_scale = image_util.resized_aspect_fill(image, (H['image_width'], H['image_height']))
+		resized_img, resize_scale = image_util.resized_aspect_fill(image, (H['image_width'], H['image_height']))
 
 		feed = {self.x_in: resized_img}
 		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
@@ -98,6 +97,7 @@ class DetectPlate(object):
 				r.rescale(1/resize_scale)
 				bbox = BBox(r.x1, r.y1, x2=r.x2, y2=r.y2)
 				bbox.confidence = r.score
+				bbox.class_id = r.silhouetteID
 				bboxes.append(bbox)
 
 		self.bboxes = bboxes
@@ -203,7 +203,7 @@ def main():
 			img = imread(fn, mode='RGB')
 			boxes = d.detect(img)
 			for r in boxes:
-				print(r.confidence)
+				print('class: {}, confidence: {:.2f}'.format(r.class_id, r.confidence))
 			# TODO: display confidence on the image
 			numplate.utils.show_image(d.boxed_image)
 

@@ -7,7 +7,7 @@ from xml.etree import ElementTree
 
 from lxml import etree
 import random
-from numplate import utils
+from numplate.config import config
 from ml import image_util
 # from skimage import io
 from scipy.misc import imread, imsave
@@ -62,7 +62,8 @@ def read_pascal(filepath):
 		rect['x2'] = float(bndbox.find('xmax').text)
 		rect['y1'] = float(bndbox.find('ymin').text)
 		rect['y2'] = float(bndbox.find('ymax').text)
-		rect['class'] = label
+		rect['class_name'] = label
+		rect['class_id'] = config.class_list.index(label)
 		shapes['rects'].append(rect)
 
 	return shapes
@@ -86,26 +87,22 @@ def resize_images(samplelist, savedir):
 		os.mkdir(savedir)
 
 	for entry in samplelist:
-		bboxes = []
-		for rect in entry['rects']:
-			bboxes.append([rect['x1'],rect['y1'],rect['x2'],rect['y2']])
 		image = imread(entry['image_path'], mode='RGB')
 
-		image, bboxes, _ = image_util.resized_aspect_fill(image, IMAGE_SIZE, bboxes)
-
+		# resize image
+		image, scale = image_util.resized_aspect_fill(image, IMAGE_SIZE)
+		# save resized image
 		newpath = os.path.split(entry['image_path'])[-1]
 		newpath = os.path.join(savedir, newpath)
 		imsave(newpath, image)
 
+
 		entry['image_path'] = newpath
-		entry['rects'] = []
-		for bbox in bboxes:
-			rect = {}
-			rect['x1'] = bbox[0]
-			rect['y1'] = bbox[1]
-			rect['x2'] = bbox[2]
-			rect['y2'] = bbox[3]
-			entry['rects'].append(rect)
+		for rect in entry['rects']:
+			rect['x1'] *= scale
+			rect['y1'] *= scale
+			rect['x2'] *= scale
+			rect['y2'] *= scale
 
 		# utils.show_image(image, bboxes)
 	return samplelist
@@ -117,7 +114,7 @@ def filter_list(samplelist, classlist):
 		rects = []
 		for rect in entry['rects']:
 			# add bounding box only if it is in classlist
-			label = rect['class']
+			label = rect['class_name']
 			if label in classlist:
 				rects.append(rect)
 		# if there is a bounding box left
