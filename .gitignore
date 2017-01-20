@@ -6,3 +6,6 @@ output/*
 inception/*
 hypes/*.json
 .ipynb*
+images
+test-list.json
+train-list.json
