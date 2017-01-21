@@ -2,10 +2,11 @@ import numpy as np
 import random
 import json
 import os
-import cv2
 import itertools
 from scipy.misc import imread, imresize
 import tensorflow as tf
+
+from PIL import Image, ImageDraw
 
 from data_utils import (annotation_jitter, annotation_to_h5)
 from utils.annolist import AnnotationLib as al
@@ -92,10 +93,23 @@ def load_data_gen(H, phase, jitter):
         output['confs'] = np.array([[make_sparse(int(detection), d=H['num_classes']) for detection in cell] for cell in flags])
         output['boxes'] = boxes
         output['flags'] = flags
-        
+
         yield output
 
-def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_len=1, min_conf=0.1, show_removed=True, tau=0.25, show_suppressed=True):
+
+def _draw_rect(draw, rect, color):
+    left = rect.cx-int(rect.width/2)
+    bottom = rect.cy+int(rect.height/2)
+    right = rect.cx+int(rect.width/2)
+    top = rect.cy-int(rect.height/2)
+    rect_cords = ((left, top), (left, bottom),
+                  (right, bottom), (right, top),
+                  (left, top))
+    draw.line(rect_cords, fill=color, width=2)
+
+
+def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_len=1, min_conf=0.1,
+                   show_removed=True, tau=0.25, show_suppressed=True):
     image = np.copy(orig_image[0])
     num_cells = H["grid_height"] * H["grid_width"]
     boxes_r = np.reshape(boxes, (-1,
@@ -135,14 +149,13 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
     else:
         pairs = []
     pairs.append((acc_rects, (0, 255, 0)))
+    im = Image.fromarray(image.astype('uint8'))
+    draw = ImageDraw.Draw(im)
     for rect_set, color in pairs:
         for rect in rect_set:
             if rect.confidence > min_conf:
-                cv2.rectangle(image,
-                    (rect.cx-int(rect.width/2), rect.cy-int(rect.height/2)),
-                    (rect.cx+int(rect.width/2), rect.cy+int(rect.height/2)),
-                    color,
-                    2)
+                _draw_rect(draw, rect, color)
+    image = np.array(im).astype('float32')
 
     rects = []
     for rect in acc_rects:
