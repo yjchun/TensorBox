@@ -1,28 +1,34 @@
 import json
 import os
-import struct
-import imghdr
-import numpy as np
 from xml.etree import ElementTree
 
 from lxml import etree
 import random
 from numplate.config import config
 from ml import image_util
-# from skimage import io
 from scipy.misc import imread, imsave
 
+
+# hype file path
+HYPE_PATH = 'hypes/overfeat_rezoom.json'
+
 # run in data/ dir
-base_dir = os.path.dirname(os.path.abspath(__file__)) + '/../'
-base_dir = os.path.abspath(base_dir)
-PASCAL_XML_DIR = base_dir + '/data/pascal-def-xml/'
-# JSON_PATH = base_dir + 'data/sample-list.json'
-JSON_PATH = 'train-list.json'
-JSON_TEST_PATH = 'test-list.json'
+PASCAL_XML_DIR = config.base_dir + '/data/pascal-def-xml/'
 SPLIT_TEST = 0.1 # 10% is for test set
 
-IMAGE_SIZE = (1024, 768)
-IMAGE_DIR = 'images'
+
+# load hype file
+with open(HYPE_PATH, 'r') as f:
+	H = json.load(f)
+
+IMAGE_SIZE = (H['image_width'], H['image_height'])
+IMAGE_DIR = 'output/train-images'
+JSON_PATH = H['data']['train_idl']
+JSON_TEST_PATH = H['data']['test_idl']
+
+assert H['num_classes'] == len(config.class_list)
+
+
 # one of
 # plate_new_small, plate_new_large, plate_new_com_small, plate_new_com_large, plate_new_2004, plate_old, plate_con, plate_temp
 # defined in tools/labelimg/data/predefined_classes.txt
@@ -124,6 +130,7 @@ def filter_list(samplelist, classlist):
 
 	return newlist
 
+
 def main():
 
 	print('Loading pascal XML dir: {}'.format(PASCAL_XML_DIR))
@@ -135,6 +142,10 @@ def main():
 	print('filtered training images: {}'.format(len(samplelist)))
 
 	print('Resizing images (saving to {})...'.format(IMAGE_DIR))
+	try:
+		os.makedirs(IMAGE_DIR)
+	except OSError as exc:  # Python >2.5
+		pass
 	samplelist = resize_images(samplelist, IMAGE_DIR)
 
 	random.shuffle(samplelist)

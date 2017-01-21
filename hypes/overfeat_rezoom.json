@@ -1,7 +1,7 @@
 {
     "data": {
-        "train_idl": "./train-list.json",
-        "test_idl": "./test-list.json",
+        "train_idl": "./output/train-list.json",
+        "test_idl": "./output/test-list.json",
         "truncate_data": false
     },
     "logging": {
@@ -44,6 +44,6 @@
     "clip_norm": 1.0,
     "lstm_size": 500,
     "deconv": false,
-    "num_classes": 2,
+    "num_classes": 9,
     "rnn_len": 1
 }
