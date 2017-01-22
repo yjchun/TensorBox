@@ -20,7 +20,7 @@ import numplate.utils
 from ml import image_util
 from ml.video_util import VideoCapture, isfile_video
 from ml.bounding_box import BBox
-
+import time
 
 # display boxes only above confidence
 CONFIDENCE = 0.7
@@ -73,9 +73,6 @@ class DetectPlate(object):
 		"""
 		#sess = tf.get_default_session()
 		#x_in = tf.get_default_graph().get_tensor_by_name('x_in:0')
-
-		import time
-		t = time.time()
 
 		# resize image...
 		resized_img, resize_scale = image_util.resized_aspect_fill(image, (H['image_width'], H['image_height']))
@@ -201,11 +198,13 @@ def main():
 				continue
 
 			img = imread(fn, mode='RGB')
+			t = time.time()
 			boxes = d.detect(img)
+			print('elapsed: {:.3f}'.format(time.time()-t))
 			for r in boxes:
 				print('class: {}, confidence: {:.2f}'.format(r.class_id, r.confidence))
-			# TODO: display confidence on the image
-			numplate.utils.show_image(d.boxed_image)
+			# display image and confidence
+			numplate.utils.show_image_with_bbox(d.image, d.bboxes)
 
 
 if __name__ == '__main__':

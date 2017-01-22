@@ -156,9 +156,9 @@ def main():
 	# save resulting json file
 	print('Saving data to {}'.format(JSON_PATH))
 	with open(JSON_TEST_PATH, 'w') as savefile:
-		json.dump(test_list, savefile)
+		json.dump(test_list, savefile, indent=2)
 	with open(JSON_PATH, 'w') as savefile:
-		json.dump(train_list, savefile)
+		json.dump(train_list, savefile, indent=2)
 
 
 if __name__ == '__main__':
