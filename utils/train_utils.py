@@ -32,8 +32,8 @@ def load_idl_tf(idlfile, H, jitter):
     annolist = al.parse(idlfile)
     annos = []
     for anno in annolist:
-        anno.imageName = os.path.join(
-            os.path.dirname(os.path.realpath(idlfile)), anno.imageName)
+        # anno.imageName = os.path.join(
+        #     os.path.dirname(os.path.realpath(idlfile)), anno.imageName)
         annos.append(anno)
     random.seed(0)
     if H['data']['truncate_data']:

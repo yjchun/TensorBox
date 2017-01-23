@@ -32,7 +32,7 @@ assert H['num_classes'] == len(config.class_list)
 # one of
 # plate_new_small, plate_new_large, plate_new_com_small, plate_new_com_large, plate_new_2004, plate_old, plate_con, plate_temp
 # defined in tools/labelimg/data/predefined_classes.txt
-FILTER_CLASSES = ['plate_new_small', 'plate_new_large']
+FILTER_CLASSES = []
 
 
 def read_pascal(filepath):
@@ -116,6 +116,8 @@ def resize_images(samplelist, savedir):
 
 def filter_list(samplelist, classlist):
 	newlist = []
+	if len(classlist) == 0:
+		return samplelist
 	for entry in samplelist:
 		rects = []
 		for rect in entry['rects']:

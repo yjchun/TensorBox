@@ -49,8 +49,8 @@ class DetectPlate(object):
 																reuse=None)
 
 			grid_area = H['grid_height'] * H['grid_width']
-			pred_confidences = tf.reshape(tf.nn.softmax(tf.reshape(pred_confs_deltas, [grid_area * H['rnn_len'], 2])),
-										  [grid_area, H['rnn_len'], 2])
+			pred_confidences = tf.reshape(tf.nn.softmax(tf.reshape(pred_confs_deltas, [grid_area * H['rnn_len'], H['num_classes']])),
+										  [grid_area, H['rnn_len'], H['num_classes']])
 			if H['reregress']:
 				pred_boxes = pred_boxes + pred_boxes_deltas
 		else:
@@ -149,15 +149,15 @@ def detect_video(path):
 	root.mainloop()
 
 
-def process_json(path, d):
-	with open(path, 'r') as f:
-		testlist = json.load(f)
-	for item in testlist:
-		image_path = item['image_path']
-
-		img = imread(image_path, mode='RGB')
-		d.detect(img)
-		numplate.utils.show_image(d.boxed_image)
+def process_image(d, path):
+	img = imread(path, mode='RGB')
+	t = time.time()
+	boxes = d.detect(img)
+	print('elapsed: {:.3f}'.format(time.time() - t))
+	for r in boxes:
+		print('class: {}, confidence: {:.2f}'.format(r.class_id, r.confidence))
+	# display image and confidence
+	numplate.utils.show_image_with_bbox(d.image, d.bboxes)
 
 
 def main():
@@ -194,17 +194,14 @@ def main():
 		d = DetectPlate()
 		for fn in args.file:
 			if fn.endswith('json'):
-				process_json(fn, d)
+				with open(fn, 'r') as f:
+					testlist = json.load(f)
+				for item in testlist:
+					image_path = item['image_path']
+					process_image(d, image_path)
 				continue
-
-			img = imread(fn, mode='RGB')
-			t = time.time()
-			boxes = d.detect(img)
-			print('elapsed: {:.3f}'.format(time.time()-t))
-			for r in boxes:
-				print('class: {}, confidence: {:.2f}'.format(r.class_id, r.confidence))
-			# display image and confidence
-			numplate.utils.show_image_with_bbox(d.image, d.bboxes)
+			else:
+				process_image(d, fn)
 
 
 if __name__ == '__main__':

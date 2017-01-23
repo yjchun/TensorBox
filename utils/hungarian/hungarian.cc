@@ -39,7 +39,7 @@ class Rect {
     width_ = width;
     height_ = height;
     confidence_ = confidence;
-    class_id_ = class_id
+    class_id_ = class_id;
     true_confidence_ = confidence;
   }
 
@@ -49,7 +49,7 @@ class Rect {
     width_ = other.width_;
     height_ = other.height_;
     confidence_ = other.confidence_;
-    class_id_ = other.class_id_
+    class_id_ = other.class_id_;
     true_confidence_ = other.true_confidence_;
   }
 
@@ -664,13 +664,13 @@ class HungarianOp : public OpKernel {
           const float pred_y = pred_boxes(n, i, c_y);
           const float pred_w = MAX(pred_boxes(n, i, c_w), 1.); // Rect is at least 1 pixel wide
           const float pred_h = MAX(pred_boxes(n, i, c_h), 1.); // Rect is at least 1 pixel tall
-          const Rect pred_rect = Rect(pred_x, pred_y, pred_w, pred_h, 0.);
+          const Rect pred_rect = Rect(pred_x, pred_y, pred_w, pred_h, 0., -1);
   
           const float true_x = true_boxes(n, j, c_x);
           const float true_y = true_boxes(n, j, c_y);
           const float true_w = true_boxes(n, j, c_w);
           const float true_h = true_boxes(n, j, c_h);
-          const Rect true_rect = Rect(true_x, true_y, true_w, true_h, 0.);
+          const Rect true_rect = Rect(true_x, true_y, true_w, true_h, 0., -1);
   
           //const float iou_threshold = 0.25;
   
