@@ -161,7 +161,7 @@ def process_image(d, path):
 
 
 def main():
-	global CONFIDENCE, WEIGHT_FILE
+	global CONFIDENCE, WEIGHT_FILE, HYPES_FILE, H
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('file', nargs='+')
@@ -169,6 +169,7 @@ def main():
 	parser.add_argument('-c', '--confidence',
 						help='Display only above confidence threshold. [0 - 1.0]',
 						type=float)
+	parser.add_argument('-y', '--hype')
 	parser.print_help()
 	args = parser.parse_args()
 
@@ -180,8 +181,12 @@ def main():
 		WEIGHT_FILE = args.weight_file
 	if args.confidence is not None:
 		CONFIDENCE = args.confidence
+	if args.hype is not None:
+		HYPES_FILE = args.hype
 
 	print('Loading model: {}'.format(WEIGHT_FILE))
+	with open(HYPES_FILE, 'r') as f:
+		H = json.load(f)
 
 	# if 'video' in magic.from_file(args.file[0], mime=True):
 	if isfile_video(args.file[0]) or args.file[0] == 'video':
