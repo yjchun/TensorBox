@@ -103,13 +103,13 @@ class DetectPlate(object):
 		return bboxes
 
 
-	def get_plates(self, image):
+	def get_plates(self, image, padding=0.2):
 		bboxes = self.detect(image)
 
 		plate_images = []
 		for bbox in bboxes:
 			# enlarge bbox by 20%
-			bbox.pad(bbox.height*0.2)
+			bbox.pad(bbox.height*padding)
 			cropped = bbox.crop_image(image)
 			plate_images.append(cropped)
 
