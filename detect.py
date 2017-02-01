@@ -103,8 +103,12 @@ class DetectPlate(object):
 		return bboxes
 
 
-	def get_plates(self, image, padding=0.2):
-		bboxes = self.detect(image)
+	def get_plates(self, image=None, padding=0.2):
+		if image is None:
+			bboxes = self.bboxes
+			image = self.image
+		else:
+			bboxes = self.detect(image)
 
 		plate_images = []
 		for bbox in bboxes:
