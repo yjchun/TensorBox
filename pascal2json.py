@@ -26,7 +26,7 @@ IMAGE_DIR = 'output/train-images'
 JSON_PATH = H['data']['train_idl']
 JSON_TEST_PATH = H['data']['test_idl']
 
-assert H['num_classes'] == len(config.class_list)
+#assert H['num_classes'] == len(config.class_list)
 
 
 # one of

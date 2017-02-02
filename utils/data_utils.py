@@ -132,7 +132,7 @@ def annotation_jitter(I, a_in, min_box_width=20, jitter_scale_min=0.9, jitter_sc
     x2 = min(rescaled_width, target_width - x1)
     y2 = min(rescaled_height, target_height - y1)
 
-    I2[0:(y2 - y1), 0:(x2 - x1), :] = I1[y1:y2, x1:x2, :]
+    I2[0:int(y2 - y1), 0:int(x2 - x1), :] = I1[int(y1):int(y2), int(x1):int(x2), :]
 
     ox1 = round(0.5*rescaled_width) + jitter_offset_x
     oy1 = round(0.5*rescaled_height) + jitter_offset_y
