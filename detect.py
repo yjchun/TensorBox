@@ -24,7 +24,7 @@ import time
 
 # display boxes only above confidence
 CONFIDENCE = 0.7
-WEIGHT_FILE = config.base_dir+'/TensorBox/output/save.ckpt-1140000'
+WEIGHT_FILE = config.base_dir+'/TensorBox/output/save.ckpt-310000'
 
 HYPES_FILE = config.base_dir+'/TensorBox/hypes/overfeat_rezoom.json'
 with open(HYPES_FILE, 'r') as f:
@@ -167,6 +167,7 @@ def process_image(d, path):
 def main():
 	global CONFIDENCE, WEIGHT_FILE, HYPES_FILE, H
 
+	#TODO: save to file
 	parser = argparse.ArgumentParser()
 	parser.add_argument('file', nargs='+')
 	parser.add_argument('-w', '--weight_file')
