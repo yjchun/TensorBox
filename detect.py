@@ -16,7 +16,7 @@ from scipy.misc import imread
 import argparse
 
 from numplate.config import config
-import numplate.utils
+import numplate.misc_util
 from ml import image_util
 from ml.video_util import VideoCapture, isfile_video
 from ml.bounding_box import BBox
@@ -120,6 +120,14 @@ class DetectPlate(object):
 		return plate_images
 
 
+DEFAULT_DETECTOR = None
+def get_instance():
+	global DEFAULT_DETECTOR
+	if DEFAULT_DETECTOR is None:
+		DEFAULT_DETECTOR = DetectPlate()
+	return DEFAULT_DETECTOR
+
+
 def detect_video(path):
 	import Tkinter
 	from PIL import Image, ImageTk
@@ -161,7 +169,7 @@ def process_image(d, path):
 	for r in boxes:
 		print('class: {}, confidence: {:.2f}'.format(r.class_id, r.confidence))
 	# display image and confidence
-	numplate.utils.show_image_with_bbox(d.image, d.bboxes)
+	numplate.misc_util.show_image_with_bbox(d.image, d.bboxes)
 
 
 def main():
