@@ -15,14 +15,14 @@ HYPE_PATH = 'hypes/overfeat_rezoom.json'
 # run in data/ dir
 PASCAL_XML_DIR = config.base_dir + '/data/pascal-def-xml/'
 SPLIT_TEST = 0.1 # 10% is for test set
-
+IMAGE_DIR = '../data/training/'
 
 # load hype file
 with open(HYPE_PATH, 'r') as f:
 	H = json.load(f)
 
 IMAGE_SIZE = (H['image_width'], H['image_height'])
-IMAGE_DIR = 'output/train-images'
+OUTPUT_DIR = 'output/train-images'
 JSON_PATH = H['data']['train_idl']
 JSON_TEST_PATH = H['data']['test_idl']
 
@@ -42,12 +42,19 @@ def read_pascal(filepath):
 	:return: (image-filename, [[xmin,ymin,xmax,ymax,one-hot encoding of class-name],...])
 	xmin,... is in relative coordinate.
 	"""
+	filename = None
+
 	assert filepath.endswith('.xml'), "Unsupport file format"
 	parser = etree.XMLParser(encoding='utf-8')
 	xmltree = ElementTree.parse(filepath, parser=parser).getroot()
-	path = xmltree.find('path').text
-	filename = os.path.split(path)[-1]
-	path = '../data/training/' + filename
+	path = xmltree.find('path')
+	if path:
+		path = xmltree.find('path').text
+		filename = os.path.split(path)[-1]
+	else:
+		filename = xmltree.find('filename').text
+
+	path = os.path.join(IMAGE_DIR, filename)
 	if not os.path.isfile(path):
 		print('File not exist, Ignored: {}'.format(filename))
 		return None
@@ -134,21 +141,30 @@ def filter_list(samplelist, classlist):
 
 
 def main():
+	import argparse
+	parser = argparse.ArgumentParser()
+	parser.add_argument('--xml_dir')
+	parser.add_argument('--image_dir')
+	args = parser.parse_args()
 
-	print('Loading pascal XML dir: {}'.format(PASCAL_XML_DIR))
-	samplelist = read_pascal_dir(PASCAL_XML_DIR)
+	xml_dir = args.xml_dir or PASCAL_XML_DIR
+	global IMAGE_DIR
+	IMAGE_DIR = args.image_dir or IMAGE_DIR
+
+	print('Loading pascal XML dir: {}'.format(xml_dir))
+	samplelist = read_pascal_dir(xml_dir)
 
 	print('Read {} training images'.format(len(samplelist)))
 
 	samplelist = filter_list(samplelist, FILTER_CLASSES)
 	print('filtered training images: {}'.format(len(samplelist)))
 
-	print('Resizing images (saving to {})...'.format(IMAGE_DIR))
+	print('Resizing images (saving to {})...'.format(OUTPUT_DIR))
 	try:
-		os.makedirs(IMAGE_DIR)
+		os.makedirs(OUTPUT_DIR)
 	except OSError as exc:  # Python >2.5
 		pass
-	samplelist = resize_images(samplelist, IMAGE_DIR)
+	samplelist = resize_images(samplelist, OUTPUT_DIR)
 
 	random.shuffle(samplelist)
 	num_test = int(round(SPLIT_TEST * len(samplelist)))
