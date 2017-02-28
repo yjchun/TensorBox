@@ -1,6 +1,6 @@
 <img src=http://russellsstewart.com/s/tensorbox/tensorbox_output.jpg></img>
 
-### Tensorflow == 0.11 supported by current version (Please report if you use >0.11 and get errors).
+### Tensorflow == 1.0 supported by current version (Please report if you use 1.0 and get errors).
 
 TensorBox is a simple framework for training neural networks to detect objects in images. 
 Training requires a json file (e.g. [here](http://russellsstewart.com/s/tensorbox/test_boxes.json))
@@ -89,3 +89,7 @@ You can visualize the progress of your experiments during training using Tensorb
 For example, the following is a screenshot of a Tensorboard comparing two different experiments with learning rate decays that kick in at different points. The learning rate drops in half at 60k iterations for the green experiment and 300k iterations for red experiment.
     
 <img src=http://russellsstewart.com/s/tensorbox/tensorboard_loss.png></img>
+
+## Community
+
+If you're new to object detection, and want to chat with other people that are working on similar problems, check out the community chat at https://gitter.im/Russell91/TensorBox, especially on Saturdays.
