@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import json
-import cv2
 import tensorflow.contrib.slim as slim
 import datetime
 import random
@@ -306,7 +305,8 @@ def build(H, q):
     arch = H
     solver = H["solver"]
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = str(solver.get('gpu', ''))
+    if 'gpu' in solver:
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(solver.get('gpu', ''))
 
     #gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.8)
     gpu_options = tf.GPUOptions()
