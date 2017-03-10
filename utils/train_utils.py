@@ -110,8 +110,7 @@ def _draw_rect(draw, rect, color):
 
 
 def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_len=1, min_conf=0.1,
-                   show_removed=True, tau=0.25, show_suppressed=True):
-    image = np.copy(orig_image[0])
+                   show_removed=True, tau=0.25, show_suppressed=True, boxed_image=True):
     num_cells = H["grid_height"] * H["grid_width"]
     boxes_r = np.reshape(boxes, (-1,
                                  H["grid_height"],
@@ -150,13 +149,18 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
     else:
         pairs = []
     pairs.append((acc_rects, (0, 255, 0)))
-    im = Image.fromarray(image.astype('uint8'))
-    draw = ImageDraw.Draw(im)
-    for rect_set, color in pairs:
-        for rect in rect_set:
-            if rect.confidence > min_conf:
-                _draw_rect(draw, rect, color)
-    image = np.array(im).astype('float32')
+
+    image = None
+    if boxed_image:
+        image = np.copy(orig_image[0])
+        im = Image.fromarray(image.astype('uint8'))
+        draw = ImageDraw.Draw(im)
+        for rect_set, color in pairs:
+            for rect in rect_set:
+                if rect.confidence > min_conf:
+                    _draw_rect(draw, rect, color)
+        # image = np.array(im).astype('float32')
+        image = np.array(im)
 
     rects = []
     for rect in acc_rects:

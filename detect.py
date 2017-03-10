@@ -10,12 +10,11 @@ from evaluate import add_rectangles
 from scipy.misc import imread
 import argparse
 
-from smarteye.config import config
+from smarteye import *
 import smarteye.misc_util
-from ml import image_util
+
 from ml.video_util import VideoCapture, isfile_video
 from ml.bounding_box import BBox
-import time
 
 
 # display boxes only above confidence
@@ -26,8 +25,10 @@ WEIGHT_FILE = config.base_dir+'/TensorBox/output/plate/save.ckpt-310000'
 #HYPES_FILE = config.base_dir+'/TensorBox/hypes/overfeat_rezoom.json'
 HYPES_FILE = os.path.join(os.path.dirname(WEIGHT_FILE), 'hypes.json')
 
+args = None
+
 class DetectPlate(object):
-	def __init__(self, weight_file, hypes_file=None, confidence=0.5):
+	def __init__(self, weight_file, hypes_file=None, confidence=CONFIDENCE):
 		self.confidence = confidence
 		self.weight_file = weight_file
 		if hypes_file is None:
@@ -39,7 +40,6 @@ class DetectPlate(object):
 		self.pred_boxes, self.pred_confidences = self._load_graph()
 		self.image = None
 		self.bboxes = []
-		self.boxed_image = None
 
 	def _load_graph(self):
 		tf.reset_default_graph()
@@ -82,10 +82,10 @@ class DetectPlate(object):
 
 		feed = {self.x_in: resized_img}
 		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
-		# TODO: boxed_image is not needed
+		# boxed_image is not needed
 		boxed_image, rects = add_rectangles(self.H, [resized_img], np_pred_confidences, np_pred_boxes,
 										use_stitching=True, rnn_len=self.H['rnn_len'], min_conf=self.confidence,
-										show_suppressed=False)
+										show_suppressed=False, boxed_image=False)
 		#print('elapsed: {}'.format(time.time() - t))
 
 		#print(np_pred_boxes)
@@ -102,11 +102,10 @@ class DetectPlate(object):
 
 		self.bboxes = bboxes
 		self.image = image
-		self.boxed_image = boxed_image
 		return bboxes
 
 
-	def get_plates(self, image=None, padding=0.2):
+	def get_cropped_images(self, image=None, padding=0.2):
 		if image is None:
 			bboxes = self.bboxes
 			image = self.image
@@ -127,7 +126,7 @@ DEFAULT_CAR_DETECTOR = None
 def get_car_detector():
 	global DEFAULT_CAR_DETECTOR
 	if DEFAULT_CAR_DETECTOR is None:
-		DEFAULT_CAR_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/voc_cars/save.ckpt-490000')
+		DEFAULT_CAR_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/car/save.ckpt-900000')
 	return DEFAULT_CAR_DETECTOR
 
 DEFAULT_PLATE_DETECTOR = None
@@ -162,7 +161,8 @@ def detect_video(path):
 		if image is None:
 			exit(0)
 		d.detect(image)
-		tkimg[0] = ImageTk.PhotoImage(Image.fromarray(d.boxed_image))
+		boxed_image = image_util.image_with_boxes(d.image, d.bboxes)
+		tkimg[0] = ImageTk.PhotoImage(Image.fromarray(boxed_image))
 		label.config(image=tkimg[0])
 		root.update_idletasks()
 		root.after(delay, update_video)
@@ -172,20 +172,36 @@ def detect_video(path):
 
 
 def process_image(d, path):
+	if not image_util.isfile_image(path):
+		print('Skipping {}'.format(path))
+		return
 	img = imread(path, mode='RGB')
 	t = time.time()
 	boxes = d.detect(img)
 	print('elapsed: {:.3f}'.format(time.time() - t))
 	for r in boxes:
 		print('class: {}, confidence: {:.2f}'.format(r.class_id, r.confidence))
-	# display image and confidence
-	smarteye.misc_util.show_image_with_bbox(d.image, d.bboxes)
+
+	if args.extract:
+		index = 0
+		from scipy.misc import imsave
+		if not os.path.exists(args.extract):
+			os.mkdir(args.extract)
+		fname = os.path.splitext(os.path.basename(path))[0]
+		cropped = d.get_cropped_images(padding=args.padding)
+		for img in cropped:
+			outpath = os.path.join(args.extract, '{}-{}.png'.format(fname, index))
+			print('Saving {}'.format(os.path.basename(outpath)))
+			imsave(outpath, img)
+			index += 1
+	else:
+		# display image and confidence
+		smarteye.misc_util.show_image_with_bbox(d.image, d.bboxes)
 
 
 def main():
-	global CONFIDENCE, WEIGHT_FILE, HYPES_FILE
+	global CONFIDENCE, WEIGHT_FILE, HYPES_FILE, args
 
-	#TODO: save to file
 	parser = argparse.ArgumentParser()
 	parser.add_argument('file', nargs='+')
 	parser.add_argument('-w', '--weight_file')
@@ -194,6 +210,8 @@ def main():
 						type=float)
 	parser.add_argument('-y', '--hype')
 	parser.add_argument('-d', '--detector', choices=['car', 'plate'])
+	parser.add_argument('-x', '--extract', help='Output directory for cropped images')
+	parser.add_argument('-p', '--padding', default=0.2, type=float)
 	args = parser.parse_args()
 
 	if len(args.file) == 0:

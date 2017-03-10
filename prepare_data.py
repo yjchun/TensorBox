@@ -35,6 +35,16 @@ def sort_points(keypoints):
 	return kp
 
 
+import datetime
+unique_filename = str(random.randint(10000, 99999)) + str(datetime.datetime.now().time().microsecond)
+
+def create_path(oldpath, savedir):
+	filename = os.path.basename(oldpath)
+	filename = os.path.splitext(filename)[0]
+	newpath = os.path.join(savedir, '{}-{}.png'.format(filename, unique_filename))
+	return newpath
+
+
 def resize_images(samplelist, savedir):
 	if not os.path.exists(savedir):
 		os.mkdir(savedir)
@@ -45,8 +55,7 @@ def resize_images(samplelist, savedir):
 		# resize image
 		image, scale = image_util.resized_aspect_fill(image, param.image_size)
 		# save resized image
-		newpath = os.path.split(entry['image_path'])[-1]
-		newpath = os.path.join(savedir, newpath)
+		newpath = create_path(entry['image_path'], savedir)
 		if not param.debug:
 			imsave(newpath, image)
 
@@ -69,6 +78,7 @@ def get_entry(imgpath, annolist):
 	shapes['rects'] = []
 
 	for annoinfo in annolist:
+		#TODO: clip points with image
 		points = sort_points(eval(annoinfo['annotation_data']))
 		class_name = annoinfo['class_name']
 
@@ -91,6 +101,7 @@ def main():
 	parser.add_argument('-y', '--hype_path', help='json Hype file path', default=HYPE_PATH)
 	parser.add_argument('-b', '--dataset_db', help='Dataset Database File Path')
 	parser.add_argument('-s', '--debug', action='store_true')
+	parser.add_argument('-m', '--merge', action='store_true')
 	parser.add_argument('-o', '--output')
 	args = parser.parse_args()
 
@@ -112,6 +123,7 @@ def main():
 
 	samplelist = []
 	image_list = annodb.get_image_list()
+
 	for imginfo in image_list:
 		annolist = annodb.get_annotations(imginfo['id'])
 		if len(annolist) == 0:
@@ -136,6 +148,15 @@ def main():
 	except OSError as exc:  # Python >2.5
 		pass
 	samplelist = resize_images(samplelist, param.output_dir)
+
+	if args.merge and os.path.exists(param.json_path):
+		with open(param.json_path, 'r') as f:
+			l = json.load(f)
+			samplelist = samplelist + l
+		with open(param.json_test_path, 'r') as f:
+			l = json.load(f)
+			samplelist = samplelist + l
+		print('Merged data (total={})'.format(len(samplelist)))
 
 	random.shuffle(samplelist)
 	num_test = int(round(param.split_test * len(samplelist)))
