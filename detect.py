@@ -28,8 +28,7 @@ HYPES_FILE = os.path.join(os.path.dirname(WEIGHT_FILE), 'hypes.json')
 args = None
 
 class DetectPlate(object):
-	def __init__(self, weight_file, hypes_file=None, confidence=CONFIDENCE):
-		self.confidence = confidence
+	def __init__(self, weight_file, hypes_file=None):
 		self.weight_file = weight_file
 		if hypes_file is None:
 			hypes_file = os.path.join(os.path.dirname(weight_file), 'hypes.json')
@@ -69,13 +68,15 @@ class DetectPlate(object):
 		return pred_boxes, pred_confidences
 
 
-	def detect(self, image):
+	def detect(self, image, confidence=CONFIDENCE):
 		"""Detect number plate from input images
 		:param image: numpy array image in shape of (image_height, image_width, 3 channels) (RGB format).
 		:return: list of BBox
 		"""
 		#sess = tf.get_default_session()
 		#x_in = tf.get_default_graph().get_tensor_by_name('x_in:0')
+		if not confidence:
+			confidence = CONFIDENCE
 
 		# resize image...
 		resized_img, resize_scale = image_util.resized_aspect_fill(image, (self.H['image_width'], self.H['image_height']))
@@ -84,7 +85,7 @@ class DetectPlate(object):
 		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
 		# boxed_image is not needed
 		boxed_image, rects = add_rectangles(self.H, [resized_img], np_pred_confidences, np_pred_boxes,
-										use_stitching=True, rnn_len=self.H['rnn_len'], min_conf=self.confidence,
+										use_stitching=True, rnn_len=self.H['rnn_len'], min_conf=confidence,
 										show_suppressed=False, boxed_image=False)
 		#print('elapsed: {}'.format(time.time() - t))
 
@@ -92,8 +93,7 @@ class DetectPlate(object):
 		#print(np_pred_confidences)
 		bboxes = []
 		for r in rects[:]:
-			#print(r.score)
-			if r.score >= self.confidence:
+			if r.score >= confidence:
 				r.rescale(1/resize_scale)
 				bbox = BBox(r.x1, r.y1, x2=r.x2, y2=r.y2)
 				bbox.confidence = r.score
@@ -105,12 +105,12 @@ class DetectPlate(object):
 		return bboxes
 
 
-	def get_cropped_images(self, image=None, padding=0.2):
+	def get_cropped_images(self, image=None, padding=0.2, confidence=CONFIDENCE):
 		if image is None:
 			bboxes = self.bboxes
 			image = self.image
 		else:
-			bboxes = self.detect(image)
+			bboxes = self.detect(image, confidence=confidence)
 
 		plate_images = []
 		for bbox in bboxes:
@@ -126,14 +126,14 @@ DEFAULT_CAR_DETECTOR = None
 def get_car_detector():
 	global DEFAULT_CAR_DETECTOR
 	if DEFAULT_CAR_DETECTOR is None:
-		DEFAULT_CAR_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/car/save.ckpt-900000')
+		DEFAULT_CAR_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/voc_coco_cars/save.ckpt-2900000')
 	return DEFAULT_CAR_DETECTOR
 
 DEFAULT_PLATE_DETECTOR = None
 def get_plate_detector():
 	global DEFAULT_PLATE_DETECTOR
 	if DEFAULT_PLATE_DETECTOR is None:
-		DEFAULT_PLATE_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/plate/save.ckpt-310000')
+		DEFAULT_PLATE_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/plate/save.ckpt-680000')
 	return DEFAULT_PLATE_DETECTOR
 
 
@@ -141,7 +141,7 @@ def detect_video(path):
 	import Tkinter
 	from PIL import Image, ImageTk
 
-	d = DetectPlate(WEIGHT_FILE, HYPES_FILE, confidence=CONFIDENCE)
+	d = DetectPlate(WEIGHT_FILE, HYPES_FILE)
 	video = VideoCapture(path)
 
 	def button_click_exit_mainloop(event):
@@ -239,7 +239,7 @@ def main():
 		elif args.detector == 'plate':
 			d = get_plate_detector()
 		else:
-			d = DetectPlate(WEIGHT_FILE, HYPES_FILE, confidence=CONFIDENCE)
+			d = DetectPlate(WEIGHT_FILE, HYPES_FILE)
 		for fn in args.file:
 			if fn.endswith('json'):
 				with open(fn, 'r') as f:

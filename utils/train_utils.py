@@ -159,8 +159,7 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
             for rect in rect_set:
                 if rect.confidence > min_conf:
                     _draw_rect(draw, rect, color)
-        # image = np.array(im).astype('float32')
-        image = np.array(im)
+        image = np.array(im).astype('float32')
 
     rects = []
     for rect in acc_rects:
