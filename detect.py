@@ -13,8 +13,11 @@ import argparse
 from smarteye import *
 import smarteye.misc_util
 
-from ml.video_util import VideoCapture, isfile_video
 from ml.bounding_box import BBox
+from ml import keras_util
+import logging
+
+log = logging.getLogger(__name__)
 
 
 # display boxes only above confidence
@@ -59,7 +62,7 @@ class DetectPlate(object):
 			pred_boxes, pred_logits, pred_confidences = build_forward(self.H, tf.expand_dims(x_in, 0), 'test', reuse=None)
 
 		saver = tf.train.Saver()
-		sess = tf.Session()
+		sess = keras_util.create_tf_session()
 		sess.run(tf.initialize_all_variables())
 		saver.restore(sess, self.weight_file)
 
@@ -73,6 +76,8 @@ class DetectPlate(object):
 		:param image: numpy array image in shape of (image_height, image_width, 3 channels) (RGB format).
 		:return: list of BBox
 		"""
+		t = time.time()
+
 		#sess = tf.get_default_session()
 		#x_in = tf.get_default_graph().get_tensor_by_name('x_in:0')
 		if not confidence:
@@ -81,13 +86,17 @@ class DetectPlate(object):
 		# resize image...
 		resized_img, resize_scale = image_util.resized_aspect_fill(image, (self.H['image_width'], self.H['image_height']))
 
+		log.debug('detect resize image took %f seconds', time.time() - t)
+		t = time.time()
+
 		feed = {self.x_in: resized_img}
 		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
 		# boxed_image is not needed
 		boxed_image, rects = add_rectangles(self.H, [resized_img], np_pred_confidences, np_pred_boxes,
 										use_stitching=True, rnn_len=self.H['rnn_len'], min_conf=confidence,
 										show_suppressed=False, boxed_image=False)
-		#print('elapsed: {}'.format(time.time() - t))
+
+		log.debug('detect image took %f seconds', time.time() - t)
 
 		#print(np_pred_boxes)
 		#print(np_pred_confidences)
@@ -105,7 +114,7 @@ class DetectPlate(object):
 		return bboxes
 
 
-	def get_cropped_images(self, image=None, padding=0.2, confidence=CONFIDENCE):
+	def get_cropped_images(self, image=None, padding=0.1, confidence=CONFIDENCE):
 		if image is None:
 			bboxes = self.bboxes
 			image = self.image
@@ -115,11 +124,20 @@ class DetectPlate(object):
 		plate_images = []
 		for bbox in bboxes:
 			# enlarge bbox by 20%
-			bbox.pad(bbox.height*padding)
+			bbox.pad(bbox.width*padding, bbox.height*padding)
 			cropped = bbox.crop_image(image)
 			plate_images.append(cropped)
 
 		return plate_images
+
+	def close(self):
+		self.sess.close()
+
+		global DEFAULT_CAR_DETECTOR, DEFAULT_PLATE_DETECTOR
+		if DEFAULT_CAR_DETECTOR == self:
+			DEFAULT_CAR_DETECTOR = None
+		if DEFAULT_PLATE_DETECTOR == self:
+			DEFAULT_PLATE_DETECTOR = None
 
 
 DEFAULT_CAR_DETECTOR = None
@@ -138,6 +156,7 @@ def get_plate_detector():
 
 
 def detect_video(path):
+	from ml.video_util import VideoCapture
 	import Tkinter
 	from PIL import Image, ImageTk
 
@@ -171,6 +190,10 @@ def detect_video(path):
 	root.mainloop()
 
 
+def validate_car_box(width, height):
+	return True
+
+
 def process_image(d, path):
 	if not image_util.isfile_image(path):
 		print('Skipping {}'.format(path))
@@ -201,6 +224,7 @@ def process_image(d, path):
 
 def main():
 	global CONFIDENCE, WEIGHT_FILE, HYPES_FILE, args
+	from ml.video_util import isfile_video
 
 	parser = argparse.ArgumentParser()
 	parser.add_argument('file', nargs='+')

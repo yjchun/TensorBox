@@ -273,6 +273,8 @@ class AnnoRect(object):
         
         if (self.score != -1):
             jdoc["score"] = self.score
+        if (self.silhouetteID != -1):
+            jdoc["silhouetteID"] = self.silhouetteID
         return jdoc
 
     def sortCoords(self):
