@@ -31,7 +31,7 @@ HYPES_FILE = os.path.join(os.path.dirname(WEIGHT_FILE), 'hypes.json')
 args = None
 
 class DetectPlate(object):
-	def __init__(self, weight_file, hypes_file=None):
+	def __init__(self, weight_file, hypes_file=None, confidence=CONFIDENCE, per_process_gpu_memory_fraction=None):
 		self.weight_file = weight_file
 		if hypes_file is None:
 			hypes_file = os.path.join(os.path.dirname(weight_file), 'hypes.json')
@@ -39,39 +39,52 @@ class DetectPlate(object):
 		with open(hypes_file, 'r') as f:
 			self.H = json.load(f)
 
-		self.pred_boxes, self.pred_confidences = self._load_graph()
+		self.pred_boxes, self.pred_confidences = self._load_graph(per_process_gpu_memory_fraction=per_process_gpu_memory_fraction)
 		self.image = None
 		self.bboxes = []
 
-	def _load_graph(self):
-		tf.reset_default_graph()
-		x_in = tf.placeholder(tf.float32, name='x_in', shape=[self.H['image_height'], self.H['image_width'], 3])
-		if self.H['use_rezoom']:
-			pred_boxes, pred_logits, pred_confidences,\
-			pred_confs_deltas, pred_boxes_deltas = build_forward(self.H,
-																tf.expand_dims(x_in, 0),
-																'test',
-																reuse=None)
+		self.confidence_max = confidence
 
-			grid_area = self.H['grid_height'] * self.H['grid_width']
-			pred_confidences = tf.reshape(tf.nn.softmax(tf.reshape(pred_confs_deltas, [grid_area * self.H['rnn_len'], self.H['num_classes']])),
-										  [grid_area, self.H['rnn_len'], self.H['num_classes']])
-			if self.H['reregress']:
-				pred_boxes = pred_boxes + pred_boxes_deltas
-		else:
-			pred_boxes, pred_logits, pred_confidences = build_forward(self.H, tf.expand_dims(x_in, 0), 'test', reuse=None)
-
-		saver = tf.train.Saver()
-		sess = keras_util.create_tf_session()
-		sess.run(tf.initialize_all_variables())
-		saver.restore(sess, self.weight_file)
-
-		self.sess = sess
-		self.x_in = x_in
-		return pred_boxes, pred_confidences
+		self.warm_up()
 
 
-	def detect(self, image, confidence=CONFIDENCE):
+	def _load_graph(self, per_process_gpu_memory_fraction=None):
+		#tf.reset_default_graph()
+
+		graph = tf.Graph()
+		sess = keras_util.create_tf_session(graph=graph, per_process_gpu_memory_fraction=per_process_gpu_memory_fraction)
+		with sess.as_default():
+			with graph.as_default():
+				x_in = tf.placeholder(tf.float32, name='x_in', shape=[self.H['image_height'], self.H['image_width'], 3])
+				if self.H['use_rezoom']:
+					pred_boxes, pred_logits, pred_confidences,\
+					pred_confs_deltas, pred_boxes_deltas = build_forward(self.H,
+																		tf.expand_dims(x_in, 0),
+																		'test',
+																		reuse=None)
+
+					grid_area = self.H['grid_height'] * self.H['grid_width']
+					pred_confidences = tf.reshape(tf.nn.softmax(tf.reshape(pred_confs_deltas, [grid_area * self.H['rnn_len'], self.H['num_classes']])),
+												  [grid_area, self.H['rnn_len'], self.H['num_classes']])
+					if self.H['reregress']:
+						pred_boxes = pred_boxes + pred_boxes_deltas
+				else:
+					pred_boxes, pred_logits, pred_confidences = build_forward(self.H, tf.expand_dims(x_in, 0), 'test', reuse=None)
+
+				saver = tf.train.Saver()
+				sess.run(tf.global_variables_initializer())
+				#saver.restore(sess, self.weight_file)
+
+				self.sess = sess
+				self.x_in = x_in
+				return pred_boxes, pred_confidences
+
+
+	def warm_up(self):
+		self.detect(image_util.generate_random_image((10, 10, 3)))
+
+
+	def detect(self, image):
 		"""Detect number plate from input images
 		:param image: numpy array image in shape of (image_height, image_width, 3 channels) (RGB format).
 		:return: list of BBox
@@ -80,46 +93,46 @@ class DetectPlate(object):
 
 		#sess = tf.get_default_session()
 		#x_in = tf.get_default_graph().get_tensor_by_name('x_in:0')
-		if not confidence:
-			confidence = CONFIDENCE
 
 		# resize image...
-		resized_img, resize_scale = image_util.resized_aspect_fill(image, (self.H['image_width'], self.H['image_height']))
+		with self.sess.as_default():
+			resized_img, resize_scale = image_util.resized_aspect_fill(image, (self.H['image_width'], self.H['image_height']))
 
-		log.debug('detect resize image took %f seconds', time.time() - t)
-		t = time.time()
+			#log.debug('detect resize image took %f seconds', time.time() - t)
+			t = time.time()
 
-		feed = {self.x_in: resized_img}
-		(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
-		# boxed_image is not needed
-		boxed_image, rects = add_rectangles(self.H, [resized_img], np_pred_confidences, np_pred_boxes,
-										use_stitching=True, rnn_len=self.H['rnn_len'], min_conf=confidence,
-										show_suppressed=False, boxed_image=False)
+			feed = {self.x_in: resized_img}
+			(np_pred_boxes, np_pred_confidences) = self.sess.run([self.pred_boxes, self.pred_confidences], feed_dict=feed)
+			# boxed_image is not needed
+			boxed_image, rects = add_rectangles(self.H, [resized_img], np_pred_confidences, np_pred_boxes,
+											use_stitching=True, rnn_len=self.H['rnn_len'],
+												min_conf=self.confidence_max,
+											show_suppressed=False, boxed_image=False)
 
-		log.debug('detect image took %f seconds', time.time() - t)
+			#log.debug('detect image took %f seconds', time.time() - t)
 
-		#print(np_pred_boxes)
-		#print(np_pred_confidences)
-		bboxes = []
-		for r in rects[:]:
-			if r.score >= confidence:
-				r.rescale(1/resize_scale)
-				bbox = BBox(r.x1, r.y1, x2=r.x2, y2=r.y2)
-				bbox.confidence = r.score
-				bbox.class_id = r.silhouetteID
-				bboxes.append(bbox)
+			#print(np_pred_boxes)
+			#print(np_pred_confidences)
+			bboxes = []
+			for r in rects[:]:
+				if r.score >= self.confidence_max:
+					r.rescale(1/resize_scale)
+					bbox = BBox(r.x1, r.y1, x2=r.x2, y2=r.y2)
+					bbox.confidence = r.score
+					bbox.class_id = r.silhouetteID
+					bboxes.append(bbox)
 
-		self.bboxes = bboxes
-		self.image = image
-		return bboxes
+			self.bboxes = bboxes
+			self.image = image
+			return bboxes
 
 
-	def get_cropped_images(self, image=None, padding=0.1, confidence=CONFIDENCE):
+	def get_cropped_images(self, image=None, padding=0.1):
 		if image is None:
 			bboxes = self.bboxes
 			image = self.image
 		else:
-			bboxes = self.detect(image, confidence=confidence)
+			bboxes = self.detect(image)
 
 		plate_images = []
 		for bbox in bboxes:
@@ -141,17 +154,19 @@ class DetectPlate(object):
 
 
 DEFAULT_CAR_DETECTOR = None
-def get_car_detector():
+def get_car_detector(**kwargs):
 	global DEFAULT_CAR_DETECTOR
 	if DEFAULT_CAR_DETECTOR is None:
-		DEFAULT_CAR_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/voc_coco_cars/save.ckpt-2900000')
+		DEFAULT_CAR_DETECTOR = DetectPlate(config.runtime_dir+'/tb_data/voc_coco_cars/save.ckpt-2900000',
+										   confidence=config.car_detect_confidence, **kwargs)
 	return DEFAULT_CAR_DETECTOR
 
 DEFAULT_PLATE_DETECTOR = None
-def get_plate_detector():
+def get_plate_detector(**kwargs):
 	global DEFAULT_PLATE_DETECTOR
 	if DEFAULT_PLATE_DETECTOR is None:
-		DEFAULT_PLATE_DETECTOR = DetectPlate(config.base_dir+'/TensorBox/output/plate/save.ckpt-680000')
+		DEFAULT_PLATE_DETECTOR = DetectPlate(config.runtime_dir+'/tb_data/plate/save.ckpt-680000',
+											 confidence=config.plate_detect_confidence, **kwargs)
 	return DEFAULT_PLATE_DETECTOR
 
 

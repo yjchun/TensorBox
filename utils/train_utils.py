@@ -10,7 +10,7 @@ from PIL import Image, ImageDraw
 
 from data_utils import (annotation_jitter, annotation_to_h5)
 from utils.annolist import AnnotationLib as al
-from rect import Rect
+from misc.rect import Rect
 from utils import tf_concat
 
 def rescale_boxes(current_shape, anno, target_height, target_width):
@@ -134,7 +134,7 @@ def add_rectangles(H, orig_image, confidences, boxes, use_stitching=False, rnn_l
 
     all_rects_r = [r for row in all_rects for cell in row for r in cell]
     if use_stitching:
-        from stitch_wrapper import stitch_rects
+        from misc.stitch_wrapper import stitch_rects
         acc_rects = stitch_rects(all_rects, tau)
     else:
         acc_rects = all_rects_r
