@@ -73,7 +73,7 @@ class DetectPlate(object):
 
 				saver = tf.train.Saver()
 				sess.run(tf.global_variables_initializer())
-				#saver.restore(sess, self.weight_file)
+				saver.restore(sess, self.weight_file)
 
 				self.sess = sess
 				self.x_in = x_in
